@@ -1,4 +1,4 @@
-name: CI/CD to ECS
+name: CI/CD to ECS (EC2)
 
 on:
   push:
@@ -24,17 +24,22 @@ jobs:
         run: |
           aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 542005048614.dkr.ecr.ap-south-1.amazonaws.com
 
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+
       - name: Build Docker Image
-        run: |
-          docker build -t myflaskapprepo:latest .
+        run: docker build -t myflaskapprepo:${IMAGE_TAG} .
 
       - name: Tag Docker Image
-        run: |
-          docker tag myflaskapprepo:latest 542005048614.dkr.ecr.ap-south-1.amazonaws.com/myflaskapprepo:latest
+        run: docker tag myflaskapprepo:${IMAGE_TAG} 542005048614.dkr.ecr.ap-south-1.amazonaws.com/myflaskapprepo:${IMAGE_TAG}
 
       - name: Push Docker Image
+        run: docker push 542005048614.dkr.ecr.ap-south-1.amazonaws.com/myflaskapprepo:${IMAGE_TAG}
+
+      - name: Update ECS task definition with new image
         run: |
-          docker push 542005048614.dkr.ecr.ap-south-1.amazonaws.com/myflaskapprepo:latest
+          jq '.containerDefinitions[0].image="542005048614.dkr.ecr.ap-south-1.amazonaws.com/myflaskapprepo:'${IMAGE_TAG}'"' ecs-task-def.json > ecs-task-def-updated.json
+          aws ecs register-task-definition --cli-input-json file://ecs-task-def-updated.json
 
       - name: Update ECS Service
         run: |
