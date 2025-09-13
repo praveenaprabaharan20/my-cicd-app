@@ -1,17 +1,20 @@
 {
-  "family": "my-flask-app",
+  "family": "my-ecs-task",
+  "networkMode": "bridge",
   "containerDefinitions": [
     {
-      "name": "flask-container",
-      "image": "<ECR_REPO_URI>:latest",
+      "name": "myflaskapp",
+      "image": "542005048614.dkr.ecr.ap-south-1.amazonaws.com/myflaskapprepo:latest",
       "essential": true,
+      "memory": 512,
+      "cpu": 256,
       "portMappings": [
-        { "containerPort": 8080, "hostPort": 8080 }
+        {
+          "containerPort": 5000,
+          "hostPort": 5000,
+          "protocol": "tcp"
+        }
       ]
     }
-  ],
-  "requiresCompatibilities": ["FARGATE"],
-  "networkMode": "awsvpc",
-  "cpu": "256",
-  "memory": "512"
+  ]
 }
