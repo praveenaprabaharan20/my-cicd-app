@@ -1,0 +1,55 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, Tag, and Push image to ECR
+      run: |
+        IMAGE_TAG=${GITHUB_SHA::7}
+        docker build -t ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG .
+        docker tag ${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+        docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+        echo "image=${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG" >> $GITHUB_ENV
+
+    # ---- ECS Deployment ----
+    - name: Deploy to ECS
+      if: ${{ secrets.ECS_CLUSTER != '' }}
+      run: |
+        aws ecs update-service \
+          --cluster ${{ secrets.ECS_CLUSTER }} \
+          --service ${{ secrets.ECS_SERVICE }} \
+          --force-new-deployment
+
+    # ---- EKS Deployment ----
+    - name: Setup kubectl for EKS
+      if: ${{ secrets.EKS_CLUSTER_NAME != '' }}
+      uses: aws-actions/eks-setup-kubectl@v1
+      with:
+        cluster-name: ${{ secrets.EKS_CLUSTER_NAME }}
+        region: ${{ secrets.AWS_REGION }}
+
+    - name: Deploy to EKS
+      if: ${{ secrets.EKS_CLUSTER_NAME != '' }}
+      run: |
+        kubectl set image deployment/flask-deployment flask-container=${{ env.image }}
+        kubectl rollout status deployment/flask-deployment
