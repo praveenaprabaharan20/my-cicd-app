@@ -41,6 +41,23 @@ jobs:
           jq '.containerDefinitions[0].image="542005048614.dkr.ecr.ap-south-1.amazonaws.com/myflaskapprepo:'${IMAGE_TAG}'"' ecs-task-def.json > ecs-task-def-updated.json
           aws ecs register-task-definition --cli-input-json file://ecs-task-def-updated.json
 
+      - name: Create ECS service if not exists
+        run: |
+          SERVICE_NAME="my-flask-service"
+          CLUSTER_NAME="favorable-panda-ziqey2"
+          DESCRIBE=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME --query "services[0].status" --output text)
+          if [ "$DESCRIBE" = "None" ] || [ "$DESCRIBE" = "INACTIVE" ]; then
+            echo "Service does not exist. Creating..."
+            aws ecs create-service \
+              --cluster $CLUSTER_NAME \
+              --service-name $SERVICE_NAME \
+              --task-definition my-ecs-task \
+              --desired-count 1 \
+              --launch-type EC2
+          else
+            echo "Service exists. Skipping creation."
+          fi
+
       - name: Update ECS Service
         run: |
           aws ecs update-service \
