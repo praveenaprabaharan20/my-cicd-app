@@ -1,0 +1,25 @@
+name: Multi-Job Example
+
+on:
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  job1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Job 1 - Print Hello
+        run: echo "Hello from Job 1 🌟"
+
+  job2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Job 2 - Print World
+        run: echo "Hello from Job 2 🌍"
+
+  job3:
+    runs-on: ubuntu-latest
+    needs: [job1, job2]  # depends on job1 and job2
+    steps:
+      - name: Job 3 - Dependent Job
+        run: echo "This runs after Job 1 and Job 2 ✅"
+
