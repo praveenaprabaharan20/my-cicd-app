@@ -44,6 +44,6 @@ jobs:
       - name: Update ECS Service
         run: |
           aws ecs update-service \
-            --cluster my-ecs-cluster \
-            --service my-ecs-service \
+            --cluster favorable-panda-ziqey2 \
+            --service my-flask-service \
             --force-new-deployment
