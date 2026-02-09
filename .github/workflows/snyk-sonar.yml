@@ -1,18 +1,16 @@
-name: DevSecOps Pipeline Demo
+name: DevSecOps Pipeline
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
 
 jobs:
 
-  # 1️⃣ SonarQube Static Code Scan
+  # 1️⃣ Sonar Static Code Analysis
   sonar:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -21,36 +19,39 @@ jobs:
           java-version: '17'
 
       - name: Sonar Scan
-        uses: sonarsource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          organization: ${{ secrets.SONAR_ORG }}
-          token: ${{ secrets.SONAR_TOKEN }}
-          projectKey: my-cicd-app
+          args: >
+            -Dsonar.projectKey=my-cicd-app
+            -Dsonar.organization=praveenaprabaharan20
+            -Dsonar.host.url=https://sonarcloud.io
 
 
-  # 2️⃣ Snyk Vulnerability Scan (Code)
+  # 2️⃣ Snyk Code Vulnerability Scan
   snyk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Run Snyk Code Scan
-        uses: snyk/actions/java@master
+      - name: Snyk Code Scan
+        uses: snyk/actions@master
+        with:
+          args: code test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
 
-  # 3️⃣ Trivy Source Code Scan (Filesystem)
+  # 3️⃣ Trivy Source Code Scan
   trivy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Trivy File System Scan
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'CRITICAL,HIGH'
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
