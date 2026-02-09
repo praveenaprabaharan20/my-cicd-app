@@ -1,0 +1,89 @@
+name: Security & Quality Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  # 1️⃣ Static Code Analysis with SonarQube
+  sonar:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Java (for Sonar Scanner)
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        with:
+          organization: ${{ secrets.SONAR_ORG }}
+          token: ${{ secrets.SONAR_TOKEN }}
+          projectKey: ${{ github.repository }}
+
+  # 2️⃣ Snyk Vulnerability Scan
+  snyk:
+    name: Snyk Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Snyk Test
+        uses: snyk/actions@master
+        with:
+          args: test
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # 3️⃣ Docker Image Build & Scan
+  image-scan:
+    name: Docker Build & Trivy Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Build Docker Image
+        run: |
+          docker build -t myapp:${{ github.sha }} .
+
+      - name: Scan Docker Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: myapp:${{ github.sha }}
+
+  # 4️⃣ Optional: Helm Deploy (if scans pass)
+  deploy:
+    name: Helm Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: [sonar, snyk, image-scan]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy App using Helm
+        run: |
+          helm upgrade --install myapp ./helm-chart \
+            -f ./helm-chart/values-dev.yaml \
+            --set image.tag=${{ github.sha }}
